@@ -15,14 +15,15 @@ import tokenization
 
 flags = tf.flags
 FLAGS = flags.FLAGS
+drive_path = '/content/drive/MyDrive/thesis'
 
-flags.DEFINE_string("train_file", './data/ijcai2019/train.json',
+flags.DEFINE_string("train_file", drive_path + '/datasets/ijcai2019/train.json',
                     "Input raw text file.")
 
-flags.DEFINE_string("output_file", './data/pretraining_data.tfrecord',
+flags.DEFINE_string("output_file", drive_path + '/datasets/pretraining_data.tfrecord',
                     "Output TF example file.")
 
-flags.DEFINE_string("vocab_file", './uncased_L-12_H-768_A-12/vocab.txt',
+flags.DEFINE_string("vocab_file", drive_path + '/models/uncased_L-12_H-768_A-12/vocab.txt',
                     "The vocabulary file that the BERT model was trained on.")
 
 flags.DEFINE_bool("do_lower_case", True,
