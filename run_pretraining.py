@@ -14,25 +14,27 @@ import modeling_speaker as modeling
 
 flags = tf.flags
 FLAGS = flags.FLAGS
+drive_path = '/content/drive/MyDrive/thesis'
+
 
 ## Required parameters
 flags.DEFINE_string("task_name", 'MPC-BERT Pre-training', 
                     "The name of the task to train.")
 
-flags.DEFINE_string("input_file", './data/ijcai2019/pretraining_data.tfrecord',
+flags.DEFINE_string("input_file", drive_path + '/datasets/ijcai2019/pretraining_data.tfrecord',
                     "The input data dir. Should contain the .tsv files (or other data files) for the task.")
 
-flags.DEFINE_string("output_dir", './uncased_L-12_H-768_A-12_pretrained',
+flags.DEFINE_string("output_dir", drive_path + '/models/uncased_L-12_H-768_A-12_pretrained',
                     "The output directory where the model checkpoints will be written.")
 
-flags.DEFINE_string("bert_config_file", 'uncased_L-12_H-768_A-12/bert_config.json',
+flags.DEFINE_string("bert_config_file", drive_path + '/models/uncased_L-12_H-768_A-12/bert_config.json',
                     "The config json file corresponding to the pre-trained BERT model. "
                     "This specifies the model architecture.")
 
-flags.DEFINE_string("vocab_file", 'uncased_L-12_H-768_A-12/vocab.txt',
+flags.DEFINE_string("vocab_file", drive_path + '/models/uncased_L-12_H-768_A-12/vocab.txt',
                     "The vocabulary file that the BERT model was trained on.")
 
-flags.DEFINE_string("init_checkpoint", 'uncased_L-12_H-768_A-12/bert_model.ckpt',
+flags.DEFINE_string("init_checkpoint", drive_path + '/models/uncased_L-12_H-768_A-12/bert_model.ckpt',
                     "Initial checkpoint (usually from a pre-trained BERT model).")
 
 flags.DEFINE_bool("do_train", True, 
