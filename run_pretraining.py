@@ -881,7 +881,7 @@ def main(_):
     tf.logging.set_verbosity(tf.logging.INFO)
     print_configuration_op(FLAGS)
 
-    bert_config = modeling.BertConfig.from_json_file(FLAGS.bert_config_file)
+    bert_config = modeling.BertConfig.from_json_file('/content/drive/MyDrive/thesis/models/uncased_L-12_H-768_A-12')
 
     if not os.path.exists(FLAGS.output_dir):
         os.makedirs(FLAGS.output_dir)
