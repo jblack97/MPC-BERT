@@ -18,8 +18,9 @@ FLAGS = flags.FLAGS
 ## Required parameters
 flags.DEFINE_string("task_name", 'MPC-BERT Pre-training', 
                     "The name of the task to train.")
+flags.DEFINE_integer('dupe_factor', 10, 'number of training data files')
 
-flags.DEFINE_string("input_file", './data/ijcai2019/pretraining_data.tfrecord',
+flags.DEFINE_string("input_file", './data/ijcai2019/pretraining_data_',
                     "The input data dir. Should contain the .tsv files (or other data files) for the task.")
 
 flags.DEFINE_string("output_dir", './uncased_L-12_H-768_A-12_pretrained',
@@ -883,8 +884,12 @@ def main(_):
 
     if not os.path.exists(FLAGS.output_dir):
         os.makedirs(FLAGS.output_dir)
-
-    train_data_size = count_data_size(FLAGS.input_file)
+    
+    input_files = [input_file + str(i) + '.tfrecord' for i in range(FLAGS.dupe_factor)]
+    train_data_size = 0
+    for input_file in input_files:
+      train_data_size += count_data_size(input_file)
+    
     tf.logging.info('*** train data size: {} ***'.format(train_data_size))
 
     num_train_steps = train_data_size // FLAGS.train_batch_size * FLAGS.num_train_epochs
@@ -962,7 +967,7 @@ def main(_):
         sess.run(tf.local_variables_initializer())
 
         for epoch in range(FLAGS.num_train_epochs):
-            sess.run(iterator.initializer, feed_dict={filenames: [FLAGS.input_file]})
+            sess.run(iterator.initializer, feed_dict={filenames: input_files})
             run_epoch(epoch, sess, saver, FLAGS.output_dir, epoch_save_step, FLAGS.mid_save_step, 
                         input_ids, eval_metrics, total_loss, train_op, eval_op)
 
