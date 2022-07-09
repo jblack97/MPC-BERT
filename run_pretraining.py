@@ -1,5 +1,8 @@
 # coding=utf-8
 """Run (MLM + NSP + RUR + ISS + PCD + MSUR + SND) pre-training for MPC-BERT."""
+! pip install wandb
+!pip uninstall tensorflow
+!pip install tensorflow-gpu==1.13.1
 
 from __future__ import absolute_import
 from __future__ import division
@@ -840,7 +843,7 @@ def run_epoch(epoch, sess, saver, output_dir, epoch_save_step, mid_save_step,
             # accumulate_loss += batch_loss * batch_sample
 
             # print
-            print_every_step = 200
+            print_every_step = 1000
             if step % print_every_step == 0:
                 tf.logging.info("Step: {}, Loss: {:.4f}, Sample: {}, Time (min): {:.2f}".format(
                        step, batch_loss, total_sample, (time()-t0)/60))
@@ -852,7 +855,10 @@ def run_epoch(epoch, sess, saver, output_dir, epoch_save_step, mid_save_step,
                                   adr_recog_accuracy, adr_recog_loss, masked_sr_accuracy, masked_sr_loss, 
                                   pointer_cd_simi, pointer_cd_loss, masked_sur_accuracy, masked_sur_loss,
                                   shared_nd_accuracy, shared_nd_loss))
-
+                wandb.log({'MLM_accuracy': masked_lm_accuracy, 'MLM_loss':masked_lm_loss, 'NSP_accuracy':next_sentence_accuracy, 'NSP_loss':next_sentence_loss, 
+                                'RUR_accuracy': adr_recog_accuracy, 'RUR_loss':adr_recog_loss, 'ISS_accuracy': masked_sr_accuracy, 'ISS_loss': masked_sr_loss, 
+                                'PCD_similarity': pointer_cd_simi, 'PCD_loss': pointer_cd_loss, 'MSUR_accuracy': masked_sur_accuracy, 'MSUR_loss': masked_sur_loss, 
+                                'SND_accuracy': shared_nd_accuracy, 'SND_loss': shared_nd_loss})
             if (step % mid_save_step == 0) or (step % epoch_save_step == 0):
                 # c_time = str(int(time()))
                 save_path = os.path.join(output_dir, 'pretrained_bert_model_epoch_{}_step_{}'.format(epoch, step))
@@ -862,6 +868,9 @@ def run_epoch(epoch, sess, saver, output_dir, epoch_save_step, mid_save_step,
                 tf.logging.info('========== Save model at epoch: {}, step: {} =========='.format(epoch, step))
                 tf.logging.info("Step: {}, Loss: {:.4f}, Sample: {}, Time (min): {:.2f}".format(
                        step, batch_loss, total_sample, (time()-t0)/60))
+                
+                
+                
                 tf.logging.info('MLM_accuracy: {:.6f}, MLM_loss: {:.6f}, NSP_accuracy: {:.6f}, NSP_loss: {:.6f}, '
                                 'RUR_accuracy: {:.6f}, RUR_loss: {:.6f}, ISS_accuracy: {:.6f}, ISS_loss: {:.6f}, '
                                 'PCD_similarity: {:.6f}, PCD_loss: {:.6f}, MSUR_accuracy: {:.6f}, MSUR_loss: {:.6f}, '
@@ -890,6 +899,17 @@ def main(_):
     for input_file in input_files:
       train_data_size += count_data_size(input_file)
     
+    wandb.init(project="MPC-BERT", entity="james97black")
+    wandb.config = {
+        'max_seq_length': FLAGS.max_seq_length, 
+        'max_utr_length':FLAGS.max_utr_length,
+        'missing_tasks' : None,
+        'train_batch_size' : FLAGS.train_batch_size,
+        'learning_rate' : FLAGS.learning_rate,
+        'train_epochs' : 10,
+        'train_data_size' : train_data_size
+      }
+
     tf.logging.info('*** train data size: {} ***'.format(train_data_size))
 
     num_train_steps = train_data_size // FLAGS.train_batch_size * FLAGS.num_train_epochs
@@ -967,7 +987,9 @@ def main(_):
         sess.run(tf.local_variables_initializer())
 
         for epoch in range(FLAGS.num_train_epochs):
+            
             sess.run(iterator.initializer, feed_dict={filenames: input_files})
+            wandb.tensorflow.log(tf.summary.merge_all())
             run_epoch(epoch, sess, saver, FLAGS.output_dir, epoch_save_step, FLAGS.mid_save_step, 
                         input_ids, eval_metrics, total_loss, train_op, eval_op)
 
