@@ -14,7 +14,7 @@ from time import time
 import tensorflow as tf
 import optimization
 import modeling_speaker as modeling
-
+import wandb
 flags = tf.flags
 FLAGS = flags.FLAGS
 
