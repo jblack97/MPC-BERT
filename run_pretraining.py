@@ -894,10 +894,11 @@ def main(_):
     if not os.path.exists(FLAGS.output_dir):
         os.makedirs(FLAGS.output_dir)
     
-    input_files = [input_file + str(i) + '.tfrecord' for i in range(FLAGS.dupe_factor)]
+    input_files = [FLAGS.input_file + str(i) + '.tfrecord' for i in range(FLAGS.dupe_factor)]
     train_data_size = 0
     for input_file in input_files:
       train_data_size += count_data_size(input_file)
+    
     
     wandb.init(project="MPC-BERT", entity="james97black")
     wandb.config = {
