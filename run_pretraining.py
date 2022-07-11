@@ -982,8 +982,6 @@ def main(_):
                   shared_nd_accuracy_op, shared_nd_loss_op]
         
       
-    strategy = tf.distribute.MirroredStrategy()
-    print ('Number of devices: {}'.format(strategy.num_replicas_in_sync))
     with strategy.scope():
       config = tf.ConfigProto(allow_soft_placement=True)
       config.gpu_options.allow_growth = True
