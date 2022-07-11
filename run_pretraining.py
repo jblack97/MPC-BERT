@@ -942,16 +942,18 @@ def main(_):
                     pointer_cd_positions_spk3, pointer_cd_positions_adr3, pointer_cd_weights, \
                     input_ids_msur, input_mask_msur, segment_ids_msur, speaker_ids_msur, masked_sur_positions, masked_sur_ids, masked_sur_weights, \
                     input_ids_snd, input_mask_snd, segment_ids_snd, speaker_ids_snd, next_thread_labels]
-
-    train_op, total_loss, metrics, input_ids = model_fn_builder(
-        features=features,
-        is_training=True,
-        bert_config=bert_config,
-        init_checkpoint=FLAGS.init_checkpoint,
-        learning_rate=FLAGS.learning_rate,
-        num_train_steps=num_train_steps,
-        num_warmup_steps=num_warmup_steps,
-        use_tpu=False,
+    strategy = tf.distribute.MirroredStrategy()
+    print ('Number of devices: {}'.format(strategy.num_replicas_in_sync))
+    with strategy.scope():
+      train_op, total_loss, metrics, input_ids = model_fn_builder(
+          features=features,
+          is_training=True,
+          bert_config=bert_config,
+          init_checkpoint=FLAGS.init_checkpoint,
+          learning_rate=FLAGS.learning_rate,
+          num_train_steps=num_train_steps,
+          num_warmup_steps=num_warmup_steps,
+          use_tpu=False,
         use_one_hot_embeddings=False)
 
     masked_lm_accuracy, masked_lm_accuracy_op = metrics["masked_lm_accuracy"]
@@ -978,20 +980,23 @@ def main(_):
                   adr_recog_accuracy_op, adr_recog_loss_op, masked_sr_accuracy_op, masked_sr_loss_op, \
                   pointer_cd_simi_op, pointer_cd_loss_op, masked_sur_accuracy_op, masked_sur_loss_op, \
                   shared_nd_accuracy_op, shared_nd_loss_op]
+        
+      
+    strategy = tf.distribute.MirroredStrategy()
+    print ('Number of devices: {}'.format(strategy.num_replicas_in_sync))
+    with strategy.scope():
+      config = tf.ConfigProto(allow_soft_placement=True)
+      config.gpu_options.allow_growth = True
+      saver = tf.train.Saver()
+      with tf.Session(config=config) as sess:
+          sess.run(tf.global_variables_initializer())
+          sess.run(tf.local_variables_initializer())
 
-    config = tf.ConfigProto(allow_soft_placement=True)
-    config.gpu_options.allow_growth = True
-    saver = tf.train.Saver()
-    with tf.Session(config=config) as sess:
-        sess.run(tf.global_variables_initializer())
-        sess.run(tf.local_variables_initializer())
-
-        for epoch in range(FLAGS.num_train_epochs):
-            
-            sess.run(iterator.initializer, feed_dict={filenames: input_files})
-            wandb.tensorflow.log(tf.summary.merge_all())
-            run_epoch(epoch, sess, saver, FLAGS.output_dir, epoch_save_step, FLAGS.mid_save_step, 
-                        input_ids, eval_metrics, total_loss, train_op, eval_op)
+          for epoch in range(FLAGS.num_train_epochs):
+              sess.run(iterator.initializer, feed_dict={filenames: input_files})
+              wandb.tensorflow.log(tf.summary.merge_all())
+              run_epoch(epoch, sess, saver, FLAGS.output_dir, epoch_save_step, FLAGS.mid_save_step, 
+                          input_ids, eval_metrics, total_loss, train_op, eval_op)
 
 
 if __name__ == "__main__":
