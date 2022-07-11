@@ -23,7 +23,7 @@ flags.DEFINE_string("task_name", 'MPC-BERT Pre-training',
                     "The name of the task to train.")
 flags.DEFINE_integer('dupe_factor', 10, 'number of training data files')
 
-flags.DEFINE_string("input_file", './data/ijcai2019/pretraining_data_',
+flags.DEFINE_string("input_file", './data/pretraining_data_',
                     "The input data dir. Should contain the .tsv files (or other data files) for the task.")
 
 flags.DEFINE_string("output_dir", './uncased_L-12_H-768_A-12_pretrained',
