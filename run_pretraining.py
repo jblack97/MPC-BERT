@@ -886,6 +886,8 @@ def run_epoch(epoch, sess, saver, output_dir, epoch_save_step, mid_save_step,
 
 
 def main(_):
+  
+    strategy = tf.distribute.MirroredStrategy()
     tf.logging.set_verbosity(tf.logging.INFO)
     print_configuration_op(FLAGS)
 
@@ -943,10 +945,9 @@ def main(_):
                     pointer_cd_positions_spk3, pointer_cd_positions_adr3, pointer_cd_weights, \
                     input_ids_msur, input_mask_msur, segment_ids_msur, speaker_ids_msur, masked_sur_positions, masked_sur_ids, masked_sur_weights, \
                     input_ids_snd, input_mask_snd, segment_ids_snd, speaker_ids_snd, next_thread_labels]
-    strategy = tf.distribute.MirroredStrategy()
+    
     print ('Number of devices: {}'.format(strategy.num_replicas_in_sync))
-    with strategy.scope():
-      train_op, total_loss, metrics, input_ids = model_fn_builder(
+    train_op, total_loss, metrics, input_ids = model_fn_builder(
           features=features,
           is_training=True,
           bert_config=bert_config,
