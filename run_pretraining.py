@@ -887,7 +887,7 @@ def run_epoch(epoch, sess, saver, output_dir, epoch_save_step, mid_save_step,
 
 def main(_):
   
-    strategy = tf.distribute.MirroredStrategy()
+    #= tf.distribute.MirroredStrategy()
     tf.logging.set_verbosity(tf.logging.INFO)
     print_configuration_op(FLAGS)
 
@@ -946,7 +946,7 @@ def main(_):
                     input_ids_msur, input_mask_msur, segment_ids_msur, speaker_ids_msur, masked_sur_positions, masked_sur_ids, masked_sur_weights, \
                     input_ids_snd, input_mask_snd, segment_ids_snd, speaker_ids_snd, next_thread_labels]
     
-    print ('Number of devices: {}'.format(strategy.num_replicas_in_sync))
+    #print ('Number of devices: {}'.format(strategy.num_replicas_in_sync))
     train_op, total_loss, metrics, input_ids = model_fn_builder(
           features=features,
           is_training=True,
@@ -984,19 +984,19 @@ def main(_):
                   shared_nd_accuracy_op, shared_nd_loss_op]
         
       
-    with strategy.scope():
-      config = tf.ConfigProto(allow_soft_placement=True)
-      config.gpu_options.allow_growth = True
-      saver = tf.train.Saver()
-      with tf.Session(config=config) as sess:
-          sess.run(tf.global_variables_initializer())
-          sess.run(tf.local_variables_initializer())
+    #with strategy.scope():
+    config = tf.ConfigProto(allow_soft_placement=True)
+    config.gpu_options.allow_growth = True
+    saver = tf.train.Saver()
+    with tf.Session(config=config) as sess:
+        sess.run(tf.global_variables_initializer())
+        sess.run(tf.local_variables_initializer())
 
-          for epoch in range(FLAGS.num_train_epochs):
-              sess.run(iterator.initializer, feed_dict={filenames: input_files})
-              wandb.tensorflow.log(tf.summary.merge_all())
-              run_epoch(epoch, sess, saver, FLAGS.output_dir, epoch_save_step, FLAGS.mid_save_step, 
-                          input_ids, eval_metrics, total_loss, train_op, eval_op)
+        for epoch in range(FLAGS.num_train_epochs):
+            sess.run(iterator.initializer, feed_dict={filenames: input_files})
+            wandb.tensorflow.log(tf.summary.merge_all())
+            run_epoch(epoch, sess, saver, FLAGS.output_dir, epoch_save_step, FLAGS.mid_save_step, 
+                        input_ids, eval_metrics, total_loss, train_op, eval_op)
 
 
 if __name__ == "__main__":
