@@ -262,7 +262,7 @@ def parse_exmp(serial_exmp):
 
 
 def model_fn_builder(features, is_training, bert_config, init_checkpoint, learning_rate,
-                     num_train_steps, num_warmup_steps, use_tpu, use_one_hot_embeddings):
+                     num_train_steps, num_warmup_steps, use_tpu, use_one_hot_embeddings, tasks):
     """Returns `model_fn` closure for TPUEstimator."""
 
     input_ids_mlm_nsp, input_mask_mlm_nsp, segment_ids_mlm_nsp, speaker_ids_mlm_nsp, \
@@ -273,76 +273,106 @@ def model_fn_builder(features, is_training, bert_config, init_checkpoint, learni
         pointer_cd_positions_spk3, pointer_cd_positions_adr3, pointer_cd_weights, \
         input_ids_msur, input_mask_msur, segment_ids_msur, speaker_ids_msur, masked_sur_positions, masked_sur_ids, masked_sur_weights, \
         input_ids_snd, input_mask_snd, segment_ids_snd, speaker_ids_snd, next_thread_labels = features
-
-    model_mlm_nsp = modeling.BertModel(
-        config=bert_config,
-        is_training=is_training,
-        input_ids=input_ids_mlm_nsp,
-        input_mask=input_mask_mlm_nsp,
-        token_type_ids=segment_ids_mlm_nsp,
-        speaker_ids=speaker_ids_mlm_nsp,
-        use_one_hot_embeddings=use_one_hot_embeddings,
-        scope="bert",
-        scope_reuse=False)
-
-    (masked_lm_loss, masked_lm_example_loss, masked_lm_log_probs) = get_masked_lm_output(
-         bert_config, model_mlm_nsp.get_sequence_output(), model_mlm_nsp.get_embedding_table(), masked_lm_positions, masked_lm_ids, masked_lm_weights)
-
-    (next_sentence_loss, next_sentence_example_loss, next_sentence_log_probs) = get_next_sentence_output(
-         bert_config, model_mlm_nsp.get_pooled_output(), next_sentence_labels)
-
-    model_ar_msr_pcd = modeling.BertModel(
-        config=bert_config,
-        is_training=is_training,
-        input_ids=input_ids_ar_msr_pcd,
-        input_mask=input_mask_ar_msr_pcd,
-        token_type_ids=segment_ids_ar_msr_pcd,
-        speaker_ids=speaker_ids_ar_msr_pcd,
-        use_one_hot_embeddings=use_one_hot_embeddings,
-        scope="bert",
-        scope_reuse=True)
     
-    (adr_recog_loss, adr_recog_example_loss, adr_recog_log_probs) = get_replyto_utterance_recognition_output(
-         bert_config, model_ar_msr_pcd.get_sequence_output(), cls_positions, adr_recog_positions, adr_recog_labels, adr_recog_weights)
+    #initialise total loss
+    total_loss =0
 
-    (masked_sr_loss, masked_sr_example_loss, masked_sr_log_probs) = get_identical_speaker_searching_output(
-         bert_config, model_ar_msr_pcd.get_sequence_output(), cls_positions, masked_sr_positions, masked_sr_labels, masked_sr_weights)
-
-    (pointer_cd_loss, pointer_cd_example_loss, pointer_cd_log_probs) = get_pointer_consistency_distinction_output(
-         bert_config, model_ar_msr_pcd.get_sequence_output(), cls_positions, pointer_cd_positions_spk1, pointer_cd_positions_adr1, 
-         pointer_cd_positions_spk2, pointer_cd_positions_adr2, pointer_cd_positions_spk3, pointer_cd_positions_adr3, pointer_cd_weights)
-
-    model_msur = modeling.BertModel(
-        config=bert_config,
-        is_training=is_training,
-        input_ids=input_ids_msur,
-        input_mask=input_mask_msur,
-        token_type_ids=segment_ids_msur,
-        speaker_ids=speaker_ids_msur,
-        use_one_hot_embeddings=use_one_hot_embeddings,
-        scope="bert",
-        scope_reuse=True)
-
-    (masked_sur_loss, masked_sur_example_loss, masked_sur_log_probs) = get_masked_shared_utterance_restoration_output(
-         bert_config, model_msur.get_sequence_output(), model_msur.get_embedding_table(), masked_sur_positions, masked_sur_ids, masked_sur_weights)
-
-    model_snd = modeling.BertModel(
-        config=bert_config,
-        is_training=is_training,
-        input_ids=input_ids_snd,
-        input_mask=input_mask_snd,
-        token_type_ids=segment_ids_snd,
-        speaker_ids=speaker_ids_snd,
-        use_one_hot_embeddings=use_one_hot_embeddings,
-        scope="bert",
-        scope_reuse=True)
-
-    (shared_nd_loss, shared_nd_example_loss, shared_nd_log_probs) = get_shared_node_detection_output(
-         bert_config, model_snd.get_pooled_output(), next_thread_labels)
+    if any(x in tasks for x in ['MLM', 'NSP']):
+      model_mlm_nsp = modeling.BertModel(
+          config=bert_config,
+          is_training=is_training,
+          input_ids=input_ids_mlm_nsp,
+          input_mask=input_mask_mlm_nsp,
+          token_type_ids=segment_ids_mlm_nsp,
+          speaker_ids=speaker_ids_mlm_nsp,
+          use_one_hot_embeddings=use_one_hot_embeddings,
+          scope="bert",
+          scope_reuse=False)
+      
+    if 'MLM' in tasks:
+      (masked_lm_loss, masked_lm_example_loss, masked_lm_log_probs) = get_masked_lm_output(
+          bert_config, model_mlm_nsp.get_sequence_output(), model_mlm_nsp.get_embedding_table(), masked_lm_positions, masked_lm_ids, masked_lm_weights)
+      total_loss += masked_lm_loss
+    else:
+      (masked_lm_loss, masked_lm_example_loss, masked_lm_log_probs) = (None, None, None)
     
-    total_loss = masked_lm_loss + next_sentence_loss + \
-                    adr_recog_loss + masked_sr_loss + pointer_cd_loss + \
-                    masked_sur_loss + shared_nd_loss
+    if 'NSP' in tasks:
+      (next_sentence_loss, next_sentence_example_loss, next_sentence_log_probs) = get_next_sentence_output(
+          bert_config, model_mlm_nsp.get_pooled_output(), next_sentence_labels)
+      total_loss += next_sentence_loss
+    
+    else:
+      (next_sentence_loss, next_sentence_example_loss, next_sentence_log_probs) = (None, None, None)
+    
+    if any(x in tasks for x in ['PCD', 'ISS', 'RUR']):
+      model_ar_msr_pcd = modeling.BertModel(
+          config=bert_config,
+          is_training=is_training,
+          input_ids=input_ids_ar_msr_pcd,
+          input_mask=input_mask_ar_msr_pcd,
+          token_type_ids=segment_ids_ar_msr_pcd,
+          speaker_ids=speaker_ids_ar_msr_pcd,
+          use_one_hot_embeddings=use_one_hot_embeddings,
+          scope="bert",
+          scope_reuse=True)
+    if 'RUR' in tasks:
+      (adr_recog_loss, adr_recog_example_loss, adr_recog_log_probs) = get_replyto_utterance_recognition_output(
+          bert_config, model_ar_msr_pcd.get_sequence_output(), cls_positions, adr_recog_positions, adr_recog_labels, adr_recog_weights)
+      total_loss += adr_recog_loss
+    else:
+      (adr_recog_loss, adr_recog_example_loss, adr_recog_log_probs) = (None, None, None)
+
+    if 'ISS' in tasks:
+      (masked_sr_loss, masked_sr_example_loss, masked_sr_log_probs) = get_identical_speaker_searching_output(
+          bert_config, model_ar_msr_pcd.get_sequence_output(), cls_positions, masked_sr_positions, masked_sr_labels, masked_sr_weights)
+      total_loss += masked_sr_loss
+    else:
+      (masked_sr_loss, masked_sr_example_loss, masked_sr_log_probs) =  (None, None, None)
+
+
+    if 'PCD' in tasks:
+      (pointer_cd_loss, pointer_cd_example_loss, pointer_cd_log_probs) = get_pointer_consistency_distinction_output(
+          bert_config, model_ar_msr_pcd.get_sequence_output(), cls_positions, pointer_cd_positions_spk1, pointer_cd_positions_adr1, 
+          pointer_cd_positions_spk2, pointer_cd_positions_adr2, pointer_cd_positions_spk3, pointer_cd_positions_adr3, pointer_cd_weights)
+      total_loss += masked_sr_loss
+    else:
+      (pointer_cd_loss, pointer_cd_example_loss, pointer_cd_log_probs) =  (None, None, None)
+
+    if 'MSUR' in tasks:
+      model_msur = modeling.BertModel(
+          config=bert_config,
+          is_training=is_training,
+          input_ids=input_ids_msur,
+          input_mask=input_mask_msur,
+          token_type_ids=segment_ids_msur,
+          speaker_ids=speaker_ids_msur,
+          use_one_hot_embeddings=use_one_hot_embeddings,
+          scope="bert",
+          scope_reuse=True)
+
+      (masked_sur_loss, masked_sur_example_loss, masked_sur_log_probs) = get_masked_shared_utterance_restoration_output(
+          bert_config, model_msur.get_sequence_output(), model_msur.get_embedding_table(), masked_sur_positions, masked_sur_ids, masked_sur_weights)
+      total_loss += masked_sur_loss
+    else:
+      (masked_sur_loss, masked_sur_example_loss, masked_sur_log_probs) = (None, None, None)
+
+    if 'SND' in tasks:
+      model_snd = modeling.BertModel(
+          config=bert_config,
+          is_training=is_training,
+          input_ids=input_ids_snd,
+          input_mask=input_mask_snd,
+          token_type_ids=segment_ids_snd,
+          speaker_ids=speaker_ids_snd,
+          use_one_hot_embeddings=use_one_hot_embeddings,
+          scope="bert",
+          scope_reuse=True)
+
+      (shared_nd_loss, shared_nd_example_loss, shared_nd_log_probs) = get_shared_node_detection_output(
+          bert_config, model_snd.get_pooled_output(), next_thread_labels)
+      total_loss += shared_nd_loss
+    else:
+      (shared_nd_loss, shared_nd_example_loss, shared_nd_log_probs) =  (None, None, None)
 
     tvars = tf.trainable_variables()
 
@@ -735,130 +765,135 @@ def metric_fn(masked_lm_example_loss, masked_lm_log_probs, masked_lm_ids, masked
   # shared_nd_example_loss: [batch_size, ]
   # shared_nd_log_probs:    [batch_size, 2]
   # next_thread_labels:     [batch_size, ]
+  metrics = {}
+  try:
+    masked_lm_predictions = tf.argmax(masked_lm_log_probs, axis=-1, output_type=tf.int32)         # [batch_size*max_predictions_per_seq, ]
+    masked_lm_ids = tf.reshape(masked_lm_ids, [-1])
+    masked_lm_weights = tf.reshape(masked_lm_weights, [-1])
+    metrics['MLM_accuracy'] = tf.metrics.accuracy(
+        labels=masked_lm_ids,
+        predictions=masked_lm_predictions,
+        weights=masked_lm_weights)
+    metrics['MLM_loss'] = tf.metrics.mean(
+        values=masked_lm_example_loss, 
+        weights=masked_lm_weights)
+  except ValueError:
+    pass
+  try:
+    if next_sentence_example_loss is not None:
+      next_sentence_predictions = tf.argmax(next_sentence_log_probs, axis=-1, output_type=tf.int32) # [batch_size, ]
+      metrics['NSP_accuracy'] = tf.metrics.accuracy(
+          labels=next_sentence_labels, 
+          predictions=next_sentence_predictions)
+      metrics['NSP_loss'] = tf.metrics.mean(
+          values=next_sentence_example_loss)
+  except ValueError:
+    pass
   
-  masked_lm_predictions = tf.argmax(masked_lm_log_probs, axis=-1, output_type=tf.int32)         # [batch_size*max_predictions_per_seq, ]
-  masked_lm_ids = tf.reshape(masked_lm_ids, [-1])
-  masked_lm_weights = tf.reshape(masked_lm_weights, [-1])
-  masked_lm_accuracy = tf.metrics.accuracy(
-      labels=masked_lm_ids,
-      predictions=masked_lm_predictions,
-      weights=masked_lm_weights)
-  masked_lm_mean_loss = tf.metrics.mean(
-      values=masked_lm_example_loss, 
-      weights=masked_lm_weights)
+  try:
+    if adr_recog_example_loss is not None:
+      adr_recog_predictions = tf.argmax(adr_recog_log_probs, axis=-1, output_type=tf.int32)  # [batch_size*max_predictions_per_seq_ar, ]
+      adr_recog_labels = tf.reshape(adr_recog_labels, [-1])                                  # [batch_size*max_predictions_per_seq_ar, ]
+      adr_recog_weights = tf.reshape(adr_recog_weights, [-1])                                # [batch_size*max_predictions_per_seq_ar, ]
+      metrics['RUR_accuracy'] = tf.metrics.accuracy(
+          labels=adr_recog_labels,
+          predictions=adr_recog_predictions,
+          weights=adr_recog_weights)
+      metrics['RUR_loss'] = tf.metrics.mean(
+          values=adr_recog_example_loss, 
+          weights=adr_recog_weights)
+  except ValueError:
+    pass
+  try:  
+    if masked_sr_example_loss is not None:
+      masked_sr_predictions = tf.argmax(masked_sr_log_probs, axis=-1, output_type=tf.int32)  # [batch_size*max_predictions_per_seq_sr, ]
+      masked_sr_labels = tf.reshape(masked_sr_labels, [-1])                                  # [batch_size*max_predictions_per_seq_sr, ]
+      masked_sr_weights = tf.reshape(masked_sr_weights, [-1])                                # [batch_size*max_predictions_per_seq_sr, ]
+      metrics['ISS_accuracy'] = tf.metrics.accuracy(
+          labels=masked_sr_labels,
+          predictions=masked_sr_predictions,
+          weights=masked_sr_weights)
+      metrics['ISS_loss'] = tf.metrics.mean(
+          values=masked_sr_example_loss, 
+          weights=masked_sr_weights)
+  except ValueError:
+    pass
 
-  next_sentence_predictions = tf.argmax(next_sentence_log_probs, axis=-1, output_type=tf.int32) # [batch_size, ]
-  next_sentence_accuracy = tf.metrics.accuracy(
-      labels=next_sentence_labels, 
-      predictions=next_sentence_predictions)
-  next_sentence_mean_loss = tf.metrics.mean(
-      values=next_sentence_example_loss)
+  try:    
+    if pointer_cd_example_loss is not None:
+      pointer_cd_weights = tf.reshape(pointer_cd_weights, [-1])  # [batch_size*max_predictions_per_seq_cd, ]
+      metrics['PCD_similarity'] = tf.metrics.mean(
+          values=pointer_cd_log_probs, 
+          weights=pointer_cd_weights)
+      metrics['PCD_loss'] = tf.metrics.mean(
+          values=pointer_cd_example_loss, 
+          weights=pointer_cd_weights)
+  except ValueError:
+    pass
+
+  try:
+    if masked_sur_example_loss is not None:
+      masked_sur_predictions = tf.argmax(masked_sur_log_probs, axis=-1, output_type=tf.int32) # [batch_size*max_utr_length, ]
+      masked_sur_ids = tf.reshape(masked_sur_ids, [-1])                                       # [batch_size*max_utr_length, ]
+      masked_sur_weights = tf.reshape(masked_sur_weights, [-1])                               # [batch_size*max_utr_length, ]
+      metrics['MSUR_accuracy'] = tf.metrics.accuracy(
+          labels=masked_sur_ids,
+          predictions=masked_sur_predictions,
+          weights=masked_sur_weights)
+      metrics['MSUR_loss'] = tf.metrics.mean(
+          values=masked_sur_example_loss, 
+          weights=masked_sur_weights)
+  except ValueError:
+    pass
+
+  try:
+    if shared_nd_example_loss is not None:
+      shared_nd_predictions = tf.argmax(shared_nd_log_probs, axis=-1, output_type=tf.int32)   # [batch_size, ]
+      metrics['SND_accuracy'] = tf.metrics.accuracy(
+          labels=next_thread_labels, 
+          predictions=shared_nd_predictions)
+      metrics['SND_loss'] = tf.metrics.mean(
+          values=shared_nd_example_loss)
+  except ValueError:
+    pass
   
-  adr_recog_predictions = tf.argmax(adr_recog_log_probs, axis=-1, output_type=tf.int32)  # [batch_size*max_predictions_per_seq_ar, ]
-  adr_recog_labels = tf.reshape(adr_recog_labels, [-1])                                  # [batch_size*max_predictions_per_seq_ar, ]
-  adr_recog_weights = tf.reshape(adr_recog_weights, [-1])                                # [batch_size*max_predictions_per_seq_ar, ]
-  adr_recog_accuracy = tf.metrics.accuracy(
-      labels=adr_recog_labels,
-      predictions=adr_recog_predictions,
-      weights=adr_recog_weights)
-  adr_recog_mean_loss = tf.metrics.mean(
-      values=adr_recog_example_loss, 
-      weights=adr_recog_weights)
+  return metrics
 
-  masked_sr_predictions = tf.argmax(masked_sr_log_probs, axis=-1, output_type=tf.int32)  # [batch_size*max_predictions_per_seq_sr, ]
-  masked_sr_labels = tf.reshape(masked_sr_labels, [-1])                                  # [batch_size*max_predictions_per_seq_sr, ]
-  masked_sr_weights = tf.reshape(masked_sr_weights, [-1])                                # [batch_size*max_predictions_per_seq_sr, ]
-  masked_sr_accuracy = tf.metrics.accuracy(
-      labels=masked_sr_labels,
-      predictions=masked_sr_predictions,
-      weights=masked_sr_weights)
-  masked_sr_mean_loss = tf.metrics.mean(
-      values=masked_sr_example_loss, 
-      weights=masked_sr_weights)
-
-  pointer_cd_weights = tf.reshape(pointer_cd_weights, [-1])  # [batch_size*max_predictions_per_seq_cd, ]
-  pointer_cd_mean_simi = tf.metrics.mean(
-      values=pointer_cd_log_probs, 
-      weights=pointer_cd_weights)
-  pointer_cd_mean_loss = tf.metrics.mean(
-      values=pointer_cd_example_loss, 
-      weights=pointer_cd_weights)
-
-  masked_sur_predictions = tf.argmax(masked_sur_log_probs, axis=-1, output_type=tf.int32) # [batch_size*max_utr_length, ]
-  masked_sur_ids = tf.reshape(masked_sur_ids, [-1])                                       # [batch_size*max_utr_length, ]
-  masked_sur_weights = tf.reshape(masked_sur_weights, [-1])                               # [batch_size*max_utr_length, ]
-  masked_sur_accuracy = tf.metrics.accuracy(
-      labels=masked_sur_ids,
-      predictions=masked_sur_predictions,
-      weights=masked_sur_weights)
-  masked_sur_mean_loss = tf.metrics.mean(
-      values=masked_sur_example_loss, 
-      weights=masked_sur_weights)
-
-  shared_nd_predictions = tf.argmax(shared_nd_log_probs, axis=-1, output_type=tf.int32)   # [batch_size, ]
-  shared_nd_accuracy = tf.metrics.accuracy(
-      labels=next_thread_labels, 
-      predictions=shared_nd_predictions)
-  shared_nd_mean_loss = tf.metrics.mean(
-      values=shared_nd_example_loss)
-
-  return {
-      "masked_lm_accuracy": masked_lm_accuracy,
-      "masked_lm_loss": masked_lm_mean_loss,
-      "next_sentence_accuracy": next_sentence_accuracy,
-      "next_sentence_loss": next_sentence_mean_loss,
-      "adr_recog_accuracy": adr_recog_accuracy,
-      "adr_recog_loss": adr_recog_mean_loss,
-      "masked_sr_accuracy": masked_sr_accuracy,
-      "masked_sr_loss": masked_sr_mean_loss,
-      "pointer_cd_simi": pointer_cd_mean_simi,
-      "pointer_cd_loss": pointer_cd_mean_loss,
-      "masked_sur_accuracy": masked_sur_accuracy,
-      "masked_sur_loss": masked_sur_mean_loss,
-      "shared_nd_accuracy": shared_nd_accuracy,
-      "shared_nd_loss": shared_nd_mean_loss
-  }
 
 
 def run_epoch(epoch, sess, saver, output_dir, epoch_save_step, mid_save_step, 
-                input_ids, eval_metrics, total_loss, train_op, eval_op):
+                input_ids, eval_metrics, total_loss, train_op, eval_op, metric_dict):
 
     total_sample = 0
     # accumulate_loss = 0
     step = 0
     t0 = time()
-
+    #pdb.set_trace()
     tf.logging.info("*** Start epoch {} training ***".format(epoch))
+
     try:
         while True:
             step += 1
             _input_ids, batch_metrics, batch_loss, _, _ = sess.run([input_ids, eval_metrics, total_loss, train_op, eval_op] )
-            masked_lm_accuracy, masked_lm_loss, next_sentence_accuracy, next_sentence_loss, \
-                adr_recog_accuracy, adr_recog_loss, masked_sr_accuracy, masked_sr_loss, \
-                pointer_cd_simi, pointer_cd_loss, masked_sur_accuracy, masked_sur_loss, \
-                shared_nd_accuracy, shared_nd_loss = batch_metrics
+            
 
             batch_sample = len(_input_ids)
             total_sample += batch_sample
             # accumulate_loss += batch_loss * batch_sample
 
             # print
-            print_every_step = 1000
+            print_every_step = 200
             if step % print_every_step == 0:
+                #pdb.set_trace()
                 tf.logging.info("Step: {}, Loss: {:.4f}, Sample: {}, Time (min): {:.2f}".format(
                        step, batch_loss, total_sample, (time()-t0)/60))
-                tf.logging.info('MLM_accuracy: {:.6f}, MLM_loss: {:.6f}, NSP_accuracy: {:.6f}, NSP_loss: {:.6f}, '
-                                'RUR_accuracy: {:.6f}, RUR_loss: {:.6f}, ISS_accuracy: {:.6f}, ISS_loss: {:.6f}, '
-                                'PCD_similarity: {:.6f}, PCD_loss: {:.6f}, MSUR_accuracy: {:.6f}, MSUR_loss: {:.6f}, '
-                                'SND_accuracy: {:.6f}, SND_loss: {:.6f}'.format(
-                                  masked_lm_accuracy, masked_lm_loss, next_sentence_accuracy, next_sentence_loss, 
-                                  adr_recog_accuracy, adr_recog_loss, masked_sr_accuracy, masked_sr_loss, 
-                                  pointer_cd_simi, pointer_cd_loss, masked_sur_accuracy, masked_sur_loss,
-                                  shared_nd_accuracy, shared_nd_loss))
-                wandb.log({'MLM_accuracy': masked_lm_accuracy, 'MLM_loss':masked_lm_loss, 'NSP_accuracy':next_sentence_accuracy, 'NSP_loss':next_sentence_loss, 
-                                'RUR_accuracy': adr_recog_accuracy, 'RUR_loss':adr_recog_loss, 'ISS_accuracy': masked_sr_accuracy, 'ISS_loss': masked_sr_loss, 
-                                'PCD_similarity': pointer_cd_simi, 'PCD_loss': pointer_cd_loss, 'MSUR_accuracy': masked_sur_accuracy, 'MSUR_loss': masked_sur_loss, 
-                                'SND_accuracy': shared_nd_accuracy, 'SND_loss': shared_nd_loss})
+                logging_string = ''
+                for index, key in enumerate(metric_dict.keys()):
+                  logging_string += f'{key}: {batch_metrics[index]}, '
+                tf.logging.info(logging_string)
+
+            wandb.log({key: value for key, value in zip(metric_dict.keys(), batch_metrics)})
+          
             if (step % mid_save_step == 0) or (step % epoch_save_step == 0):
                 # c_time = str(int(time()))
                 save_path = os.path.join(output_dir, 'pretrained_bert_model_epoch_{}_step_{}'.format(epoch, step))
@@ -869,51 +904,39 @@ def run_epoch(epoch, sess, saver, output_dir, epoch_save_step, mid_save_step,
                 tf.logging.info("Step: {}, Loss: {:.4f}, Sample: {}, Time (min): {:.2f}".format(
                        step, batch_loss, total_sample, (time()-t0)/60))
                 
-                
-                
-                tf.logging.info('MLM_accuracy: {:.6f}, MLM_loss: {:.6f}, NSP_accuracy: {:.6f}, NSP_loss: {:.6f}, '
-                                'RUR_accuracy: {:.6f}, RUR_loss: {:.6f}, ISS_accuracy: {:.6f}, ISS_loss: {:.6f}, '
-                                'PCD_similarity: {:.6f}, PCD_loss: {:.6f}, MSUR_accuracy: {:.6f}, MSUR_loss: {:.6f}, '
-                                'SND_accuracy: {:.6f}, SND_loss: {:.6f}'.format(
-                                  masked_lm_accuracy, masked_lm_loss, next_sentence_accuracy, next_sentence_loss, 
-                                  adr_recog_accuracy, adr_recog_loss, masked_sr_accuracy, masked_sr_loss, 
-                                  pointer_cd_simi, pointer_cd_loss, masked_sur_accuracy, masked_sur_loss,
-                                  shared_nd_accuracy, shared_nd_loss))
+                tf.logging.info(logging_string)
+
                 
     except tf.errors.OutOfRangeError:
         tf.logging.info('*** Epoch {} is finished ***'.format(epoch))
         pass
 
+def main(pretraining_tasks = ['NSP', 'MLM', 'RUR', 'ISS', 'PCD', 'MSUR', 'SND']):
 
-def main(_):
-  
-    #= tf.distribute.MirroredStrategy()
-    tf.logging.set_verbosity(tf.logging.INFO)
-    print_configuration_op(FLAGS)
+    bert_config = modeling.BertConfig.from_json_file('/content/drive/MyDrive/thesis/models/uncased_L-12_H-768_A-12/bert_config.json')
 
-    bert_config = modeling.BertConfig.from_json_file(FLAGS.bert_config_file)
-
-    if not os.path.exists(FLAGS.output_dir):
-        os.makedirs(FLAGS.output_dir)
-    
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
     input_files = [FLAGS.input_file + str(i) + '.tfrecord' for i in range(FLAGS.dupe_factor)]
     train_data_size = 0
     for input_file in input_files:
       train_data_size += count_data_size(input_file)
     
-    
+    #initialise wandb
     wandb.init(project="MPC-BERT", entity="james97black")
+    
     wandb.config = {
         'max_seq_length': FLAGS.max_seq_length, 
         'max_utr_length':FLAGS.max_utr_length,
-        'missing_tasks' : None,
+        'tasks' : pretraining_tasks,
         'train_batch_size' : FLAGS.train_batch_size,
         'learning_rate' : FLAGS.learning_rate,
         'train_epochs' : 10,
         'train_data_size' : train_data_size
       }
-
+    
     tf.logging.info('*** train data size: {} ***'.format(train_data_size))
+
 
     num_train_steps = train_data_size // FLAGS.train_batch_size * FLAGS.num_train_epochs
     num_warmup_steps = int(num_train_steps * FLAGS.warmup_proportion)
@@ -945,58 +968,33 @@ def main(_):
                     pointer_cd_positions_spk3, pointer_cd_positions_adr3, pointer_cd_weights, \
                     input_ids_msur, input_mask_msur, segment_ids_msur, speaker_ids_msur, masked_sur_positions, masked_sur_ids, masked_sur_weights, \
                     input_ids_snd, input_mask_snd, segment_ids_snd, speaker_ids_snd, next_thread_labels]
-    
-    #print ('Number of devices: {}'.format(strategy.num_replicas_in_sync))
+
     train_op, total_loss, metrics, input_ids = model_fn_builder(
           features=features,
           is_training=True,
           bert_config=bert_config,
-          init_checkpoint=FLAGS.init_checkpoint,
+          init_checkpoint= init_checkpoint,
           learning_rate=FLAGS.learning_rate,
           num_train_steps=num_train_steps,
           num_warmup_steps=num_warmup_steps,
           use_tpu=False,
-        use_one_hot_embeddings=False)
+          use_one_hot_embeddings=False,
+          tasks = pretraining_tasks)
 
-    masked_lm_accuracy, masked_lm_accuracy_op = metrics["masked_lm_accuracy"]
-    masked_lm_loss, masked_lm_loss_op = metrics["masked_lm_loss"]
-    next_sentence_accuracy, next_sentence_op = metrics["next_sentence_accuracy"]
-    next_sentence_loss, next_sentence_loss_op = metrics["next_sentence_loss"]
-    adr_recog_accuracy, adr_recog_accuracy_op = metrics["adr_recog_accuracy"]
-    adr_recog_loss, adr_recog_loss_op = metrics["adr_recog_loss"]
-    masked_sr_accuracy, masked_sr_accuracy_op = metrics["masked_sr_accuracy"]
-    masked_sr_loss, masked_sr_loss_op = metrics["masked_sr_loss"]
-    pointer_cd_simi, pointer_cd_simi_op = metrics["pointer_cd_simi"]
-    pointer_cd_loss, pointer_cd_loss_op = metrics["pointer_cd_loss"]
-    masked_sur_accuracy, masked_sur_accuracy_op = metrics["masked_sur_accuracy"]
-    masked_sur_loss, masked_sur_loss_op = metrics["masked_sur_loss"]
-    shared_nd_accuracy, shared_nd_accuracy_op = metrics["shared_nd_accuracy"]
-    shared_nd_loss, shared_nd_loss_op = metrics["shared_nd_loss"]
+    eval_metrics = [value[0] for key, value in metrics.items()]
 
-    eval_metrics = [masked_lm_accuracy, masked_lm_loss, next_sentence_accuracy, next_sentence_loss, \
-                        adr_recog_accuracy, adr_recog_loss, masked_sr_accuracy, masked_sr_loss, \
-                        pointer_cd_simi, pointer_cd_loss, masked_sur_accuracy, masked_sur_loss, \
-                        shared_nd_accuracy, shared_nd_loss]
-
-    eval_op = [masked_lm_accuracy_op, masked_lm_loss_op, next_sentence_op, next_sentence_loss_op, \
-                  adr_recog_accuracy_op, adr_recog_loss_op, masked_sr_accuracy_op, masked_sr_loss_op, \
-                  pointer_cd_simi_op, pointer_cd_loss_op, masked_sur_accuracy_op, masked_sur_loss_op, \
-                  shared_nd_accuracy_op, shared_nd_loss_op]
-        
-      
-    #with strategy.scope():
-    config = tf.ConfigProto(allow_soft_placement=True)
+    eval_op = [value[1] for key, value in metrics.items()]
+    config = tf.ConfigProto(allow_soft_placement=True, log_device_placement = True)
     config.gpu_options.allow_growth = True
     saver = tf.train.Saver()
     with tf.Session(config=config) as sess:
         sess.run(tf.global_variables_initializer())
         sess.run(tf.local_variables_initializer())
-
+        wandb.tensorflow.log(tf.summary.merge_all())
         for epoch in range(FLAGS.num_train_epochs):
             sess.run(iterator.initializer, feed_dict={filenames: input_files})
-            wandb.tensorflow.log(tf.summary.merge_all())
-            run_epoch(epoch, sess, saver, FLAGS.output_dir, epoch_save_step, FLAGS.mid_save_step, 
-                        input_ids, eval_metrics, total_loss, train_op, eval_op)
+            run_epoch(epoch, sess, saver, output_dir, epoch_save_step, FLAGS.mid_save_step, 
+                        input_ids, eval_metrics, total_loss, train_op, eval_op, metrics)  
 
 
 if __name__ == "__main__":
