@@ -913,10 +913,10 @@ def run_epoch(epoch, sess, saver, output_dir, epoch_save_step, mid_save_step,
 
 def main(pretraining_tasks = ['NSP', 'MLM', 'RUR', 'ISS', 'PCD', 'MSUR', 'SND']):
 
-    bert_config = modeling.BertConfig.from_json_file('/content/drive/MyDrive/thesis/models/uncased_L-12_H-768_A-12/bert_config.json')
+    bert_config = modeling.BertConfig.from_json_file('FLAGS.bert_config_file')
 
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+    if not os.path.exists(FLAGS.output_dir):
+        os.makedirs(FLAGS.output_dir)
     input_files = [FLAGS.input_file + str(i) + '.tfrecord' for i in range(FLAGS.dupe_factor)]
     train_data_size = 0
     for input_file in input_files:
@@ -973,7 +973,7 @@ def main(pretraining_tasks = ['NSP', 'MLM', 'RUR', 'ISS', 'PCD', 'MSUR', 'SND'])
           features=features,
           is_training=True,
           bert_config=bert_config,
-          init_checkpoint= init_checkpoint,
+          init_checkpoint= FLAGS.init_checkpoint,
           learning_rate=FLAGS.learning_rate,
           num_train_steps=num_train_steps,
           num_warmup_steps=num_warmup_steps,
@@ -993,7 +993,7 @@ def main(pretraining_tasks = ['NSP', 'MLM', 'RUR', 'ISS', 'PCD', 'MSUR', 'SND'])
         wandb.tensorflow.log(tf.summary.merge_all())
         for epoch in range(FLAGS.num_train_epochs):
             sess.run(iterator.initializer, feed_dict={filenames: input_files})
-            run_epoch(epoch, sess, saver, output_dir, epoch_save_step, FLAGS.mid_save_step, 
+            run_epoch(epoch, sess, saver, FLAGS.output_dir, epoch_save_step, FLAGS.mid_save_step, 
                         input_ids, eval_metrics, total_loss, train_op, eval_op, metrics)  
 
 
