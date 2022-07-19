@@ -89,7 +89,7 @@ flags.DEFINE_float("learning_rate", 5e-5,
 flags.DEFINE_float("warmup_proportion", 0.1, 
                    "Number of warmup steps.")
 
-flags.DEFINE_integer("num_train_epochs", 10, 
+flags.DEFINE_integer("num_train_epochs", 1, 
                      "num_train_epochs.")
 
 
