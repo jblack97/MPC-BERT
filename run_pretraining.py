@@ -1,8 +1,6 @@
 # coding=utf-8
 """Run (MLM + NSP + RUR + ISS + PCD + MSUR + SND) pre-training for MPC-BERT."""
-! pip install wandb
-!pip uninstall tensorflow
-!pip install tensorflow-gpu==1.13.1
+
 
 from __future__ import absolute_import
 from __future__ import division
@@ -15,9 +13,16 @@ import tensorflow as tf
 import optimization
 import modeling_speaker as modeling
 import wandb
+import argparse
 flags = tf.flags
 FLAGS = flags.FLAGS
 
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--tasks', '--list', nargs='+', help='<Required> Set flag', required=True)
+args = parser.parse_args()
+## Required parameters
+flags.DEFINE_list('pretraining_tasks', args.tasks, help = 'list of SSL tasks')
 ## Required parameters
 flags.DEFINE_string("task_name", 'MPC-BERT Pre-training', 
                     "The name of the task to train.")
@@ -882,7 +887,7 @@ def run_epoch(epoch, sess, saver, output_dir, epoch_save_step, mid_save_step,
             # accumulate_loss += batch_loss * batch_sample
 
             # print
-            print_every_step = 200
+            print_every_step = 1000
             if step % print_every_step == 0:
                 #pdb.set_trace()
                 tf.logging.info("Step: {}, Loss: {:.4f}, Sample: {}, Time (min): {:.2f}".format(
@@ -911,8 +916,8 @@ def run_epoch(epoch, sess, saver, output_dir, epoch_save_step, mid_save_step,
         tf.logging.info('*** Epoch {} is finished ***'.format(epoch))
         pass
 
-def main(pretraining_tasks = ['NSP', 'MLM', 'RUR', 'ISS', 'PCD', 'MSUR', 'SND']):
-
+def main(_):
+    pretraining_tasks = FLAGS.pretraining_tasks
     bert_config = modeling.BertConfig.from_json_file('FLAGS.bert_config_file')
 
     if not os.path.exists(FLAGS.output_dir):
@@ -979,7 +984,7 @@ def main(pretraining_tasks = ['NSP', 'MLM', 'RUR', 'ISS', 'PCD', 'MSUR', 'SND'])
           num_warmup_steps=num_warmup_steps,
           use_tpu=False,
           use_one_hot_embeddings=False,
-          tasks = pretraining_tasks)
+          tasks = FLAGS.pretraining_tasks)
 
     eval_metrics = [value[0] for key, value in metrics.items()]
 
