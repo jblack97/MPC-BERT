@@ -918,7 +918,7 @@ def run_epoch(epoch, sess, saver, output_dir, epoch_save_step, mid_save_step,
 
 def main(_):
     pretraining_tasks = FLAGS.pretraining_tasks
-    bert_config = modeling.BertConfig.from_json_file('FLAGS.bert_config_file')
+    bert_config = modeling.BertConfig.from_json_file(FLAGS.bert_config_file)
 
     if not os.path.exists(FLAGS.output_dir):
         os.makedirs(FLAGS.output_dir)
