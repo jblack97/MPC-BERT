@@ -278,10 +278,9 @@ def model_fn_builder(features, is_training, bert_config, init_checkpoint, learni
         pointer_cd_positions_spk3, pointer_cd_positions_adr3, pointer_cd_weights, \
         input_ids_msur, input_mask_msur, segment_ids_msur, speaker_ids_msur, masked_sur_positions, masked_sur_ids, masked_sur_weights, \
         input_ids_snd, input_mask_snd, segment_ids_snd, speaker_ids_snd, next_thread_labels = features
-    
+    scope_reuse = False
     #initialise total loss
     total_loss =0
-
     if any(x in tasks for x in ['MLM', 'NSP']):
       model_mlm_nsp = modeling.BertModel(
           config=bert_config,
@@ -292,7 +291,9 @@ def model_fn_builder(features, is_training, bert_config, init_checkpoint, learni
           speaker_ids=speaker_ids_mlm_nsp,
           use_one_hot_embeddings=use_one_hot_embeddings,
           scope="bert",
-          scope_reuse=False)
+          scope_reuse=scope_reuse)
+      scope_reuse = True
+        
       
     if 'MLM' in tasks:
       (masked_lm_loss, masked_lm_example_loss, masked_lm_log_probs) = get_masked_lm_output(
@@ -319,7 +320,8 @@ def model_fn_builder(features, is_training, bert_config, init_checkpoint, learni
           speaker_ids=speaker_ids_ar_msr_pcd,
           use_one_hot_embeddings=use_one_hot_embeddings,
           scope="bert",
-          scope_reuse=True)
+          scope_reuse=scope_reuse)
+      scope_reuse = True
     if 'RUR' in tasks:
       (adr_recog_loss, adr_recog_example_loss, adr_recog_log_probs) = get_replyto_utterance_recognition_output(
           bert_config, model_ar_msr_pcd.get_sequence_output(), cls_positions, adr_recog_positions, adr_recog_labels, adr_recog_weights)
@@ -353,7 +355,8 @@ def model_fn_builder(features, is_training, bert_config, init_checkpoint, learni
           speaker_ids=speaker_ids_msur,
           use_one_hot_embeddings=use_one_hot_embeddings,
           scope="bert",
-          scope_reuse=True)
+          scope_reuse=scope_reuse)
+      scope_reuse = True
 
       (masked_sur_loss, masked_sur_example_loss, masked_sur_log_probs) = get_masked_shared_utterance_restoration_output(
           bert_config, model_msur.get_sequence_output(), model_msur.get_embedding_table(), masked_sur_positions, masked_sur_ids, masked_sur_weights)
@@ -371,8 +374,9 @@ def model_fn_builder(features, is_training, bert_config, init_checkpoint, learni
           speaker_ids=speaker_ids_snd,
           use_one_hot_embeddings=use_one_hot_embeddings,
           scope="bert",
-          scope_reuse=True)
-
+          scope_reuse=scope_reuse)
+      
+      scope_reuse = True
       (shared_nd_loss, shared_nd_example_loss, shared_nd_log_probs) = get_shared_node_detection_output(
           bert_config, model_snd.get_pooled_output(), next_thread_labels)
       total_loss += shared_nd_loss
