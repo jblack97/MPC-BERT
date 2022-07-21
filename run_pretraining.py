@@ -341,7 +341,7 @@ def model_fn_builder(features, is_training, bert_config, init_checkpoint, learni
       (pointer_cd_loss, pointer_cd_example_loss, pointer_cd_log_probs) = get_pointer_consistency_distinction_output(
           bert_config, model_ar_msr_pcd.get_sequence_output(), cls_positions, pointer_cd_positions_spk1, pointer_cd_positions_adr1, 
           pointer_cd_positions_spk2, pointer_cd_positions_adr2, pointer_cd_positions_spk3, pointer_cd_positions_adr3, pointer_cd_weights)
-      total_loss += masked_sr_loss
+      total_loss += pointer_cd_loss
     else:
       (pointer_cd_loss, pointer_cd_example_loss, pointer_cd_log_probs) =  (None, None, None)
 
