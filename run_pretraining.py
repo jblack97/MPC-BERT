@@ -905,7 +905,7 @@ def run_epoch(epoch, sess, saver, output_dir, epoch_save_step, mid_save_step,
           
             if (step % mid_save_step == 0) or (step % epoch_save_step == 0):
                 # c_time = str(int(time()))
-                save_path = os.path.join(output_dir, 'BERT_{}_epoch_{}_step_{}'.format(FLAGS.pretraining_tasks.join('_'), epoch, step))
+                save_path = os.path.join(output_dir, 'BERT_{}_epoch_{}_step_{}'.format('_'.join(FLAGS.pretraining_tasks), epoch, step))
                 if not os.path.exists(save_path):
                     os.makedirs(save_path)
                 saver.save(sess, os.path.join(save_path, 'bert_model_epoch_{}_step_{}.ckpt'.format(epoch, step)), global_step=step)
