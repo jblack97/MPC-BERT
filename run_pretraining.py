@@ -995,7 +995,7 @@ def main(_):
     eval_op = [value[1] for key, value in metrics.items()]
     config = tf.ConfigProto(allow_soft_placement=True, log_device_placement = True)
     config.gpu_options.allow_growth = True
-    saver = tf.train.Saver()
+    saver = tf.train.Saver(max_to_keep=20)
     with tf.Session(config=config) as sess:
         sess.run(tf.global_variables_initializer())
         sess.run(tf.local_variables_initializer())
