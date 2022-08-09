@@ -881,7 +881,7 @@ def run_epoch(epoch, sess, saver, output_dir, epoch_save_step, mid_save_step,
     tf.logging.info("*** Start epoch {} training ***".format(epoch))
 
     try:
-        while True:
+        while step < 120001:
             step += 1
             _input_ids, batch_metrics, batch_loss, _, _ = sess.run([input_ids, eval_metrics, total_loss, train_op, eval_op] )
             
